@@ -1,0 +1,9 @@
+menu:
+  main:
+    message: "Главное меню"
+    buttons:
+      main_menu: "Главное меню"
+      statistics: "Статистика"
+      history: "История работы"
+      my_profile: "Мой профиль"
+      start_shift: "Начать смену"
