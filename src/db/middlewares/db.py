@@ -13,7 +13,7 @@ class DBSessionMiddleware(BaseMiddleware):
     async def __call__(self, handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]], event: Update, data: Dict[str, Any]) -> Any:
         async with self.session_factory() as session:
             try:
-                data["db_session"] = session
+                data["session"] = session
                 return await handler(event, data)
             except Exception as e:
                 await session.rollback()

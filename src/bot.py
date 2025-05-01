@@ -2,10 +2,9 @@ import logging
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.enums import ParseMode
 
 from src.config import settings
-from src.db.engine import engine, AsyncSessionLocal, dispose_engine, create_db_and_tables
+from src.db.engine import engine, AsyncSessionLocal, dispose_engine
 from src.db.middlewares.db import DBSessionMiddleware
 from src.handlers import main_handler_router
 
@@ -13,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 async def main():
-    bot = Bot(token=settings.bot_token)
+    bot = Bot(token=settings.telegram_bot_token)
     dp = Dispatcher(storage=MemoryStorage())
 
     dp.message.middleware(DBSessionMiddleware(AsyncSessionLocal))
