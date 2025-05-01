@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    bot_token: str
+    telegram_bot_token: str
 
     postgres_user: str
     postgres_password: str
