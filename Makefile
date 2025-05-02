@@ -1,9 +1,15 @@
-
 # Define the docker compose file
 COMPOSE_FILE = docker-compose.yml
 
-# Use the modern docker compose command
+# Use the modern docker compose command (or fallback to older docker-compose)
 COMPOSE_COMMAND = docker compose
+
+# Docker command
+DOCKER_COMMAND = docker
+
+# Define service names
+BOT_SERVICE = bot
+DB_SERVICE = db
 
 # --- General Commands ---
 
@@ -40,7 +46,7 @@ help:
 .PHONY: build
 build:
 	@echo "Building bot container image..."
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) build bot
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) build $(BOT_SERVICE)
 	@echo "Build complete."
 
 .PHONY: up
@@ -65,45 +71,86 @@ clean:
 
 .PHONY: db-init
 db-init:
-	@echo "Initializing database from scratch (WARNING: THIS WILL DELETE ALL DATA!)"
-	# Stop and remove *only* the DB service and its volume
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) down -v db
-	@echo "Starting database service for initialization..."
-	# Start ONLY the DB service. It will perform initdb on first run due to volume removal.
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) up -d db
-	@echo "Waiting for database service to become healthy..."
-	# Use docker inspect to wait for the healthy status
-	@while [ "$$($(COMPOSE_COMMAND) -f $(COMPOSE_FILE) inspect --format='{{.State.Health.Status}}' "$(shell $(COMPOSE_COMMAND) -f $(COMPOSE_FILE) ps -q db)" 2>/dev/null)" != "healthy" ]; do \
-	  echo -n "."; sleep 1; \
-	done; echo ""
-	@echo "Database service is healthy."
-	# Run the command to create tables using the application code inside the *bot* container
-	# Need to ensure the bot container exists and is ready to run commands.
-	# The 'up' command below will wait for DB health check before starting bot.
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) up -d bot # Ensure bot container is also up and healthy
-	@echo "Waiting for bot service to be running to create tables..."
-	@while [ "$$($(COMPOSE_COMMAND) -f $(COMPOSE_FILE) inspect --format='{{.State.Health.Running}}' "$(shell $(COMPOSE_COMMAND) -f $(COMPOSE_FILE) ps -q bot)" 2>/dev/null)" != "true" ]; do \
-	  echo -n "."; sleep 1; \
-	done; echo ""
-	@echo "Bot service is running. Creating tables..."
-	# Execute the table creation script/function inside the bot container
-	# This assumes you have a way to trigger create_db_and_tables() from an executable script/module in your bot container.
-	# A simple way is to add a dedicated script or run it directly via python -c
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) exec bot python -c 'import asyncio; from src.db.engine import create_db_and_tables; asyncio.run(create_db_and_tables())'
-	@echo "Database and tables created."
-	@echo "Database initialization complete."
+	@echo "1. Initializing database from scratch (removing volume)..."
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) down -v $(DB_SERVICE)
+	@echo "2. Starting database service ($(DB_SERVICE))..."
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) up -d $(DB_SERVICE)
+	@echo "3. Waiting for database service ($(DB_SERVICE)) to become healthy..."
+	@status="starting"; \
+	while [ "$$status" != "healthy" ]; do \
+	    container_id=$$($(COMPOSE_COMMAND) -f $(COMPOSE_FILE) ps -q $(DB_SERVICE)); \
+	    if [ -n "$$container_id" ]; then \
+	        inspect_output=$$($(DOCKER_COMMAND) inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $$container_id); \
+	        inspect_exit_code=$$?; \
+	        if [ $$inspect_exit_code -ne 0 ]; then \
+	            raw_status="inspect_error"; \
+	        else \
+	            raw_status="$$inspect_output"; \
+	        fi; \
+	        if [ "$$raw_status" = "running" ]; then \
+	            status="healthy"; \
+	        elif [ "$$raw_status" = "inspect_error" ]; then \
+	            status="error"; \
+	        else \
+	            status="$$raw_status"; \
+	        fi; \
+	    else \
+	        status="starting"; \
+	    fi; \
+	    if [ "$$status" != "healthy" ]; then \
+	        echo -n "."; \
+	        sleep 1; \
+	    fi; \
+	    if [ "$$status" = "error" ]; then \
+	        echo " Error inspecting DB container! Exit code: $$inspect_exit_code Output: $$inspect_output"; \
+	        exit 1; \
+	    fi; \
+	done; echo " DB Status: $$status"
+	@echo "4. Starting bot service ($(BOT_SERVICE)) (if not already running)..."
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) up -d $(BOT_SERVICE)
+	@echo "5. Waiting for bot service ($(BOT_SERVICE)) to be running..."
+	@running="false"; \
+	while [ "$$running" != "true" ]; do \
+	    container_id=$$($(COMPOSE_COMMAND) -f $(COMPOSE_FILE) ps -q $(BOT_SERVICE)); \
+	    if [ -n "$$container_id" ]; then \
+	        inspect_output=$$($(DOCKER_COMMAND) inspect --format='{{.State.Running}}' $$container_id); \
+	        inspect_exit_code=$$?; \
+	        if [ $$inspect_exit_code -ne 0 ]; then \
+	            running="error"; \
+	        else \
+	            running="$$inspect_output"; \
+	        fi; \
+	    else \
+	        running="false"; \
+	    fi; \
+	    if [ "$$running" != "true" ]; then \
+	        echo -n "*"; \
+	        sleep 1; \
+	    fi; \
+	    if [ "$$running" = "error" ]; then \
+	        echo " Error inspecting Bot container! Exit code: $$inspect_exit_code Output: $$inspect_output"; \
+	        exit 1; \
+	    fi; \
+	done; echo " Bot Status: $$running"
+	@echo "6. Creating database tables via exec in $(BOT_SERVICE)..."
+	# Add a small delay just in case the container is running but internal app not fully ready
+	sleep 3
+	# Execute the table creation script
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) exec $(BOT_SERVICE) python -c 'import asyncio; from src.db.engine import create_db_and_tables; print("--- Running create_db_and_tables ---"); asyncio.run(create_db_and_tables()); print("--- Finished create_db_and_tables ---")'
+	@echo "7. Database and tables should be created."
+	@echo "8. Database initialization complete."
 
 
 .PHONY: db-start
 db-start:
-	@echo "Starting database service..."
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) up -d db
+	@echo "Starting database service ($(DB_SERVICE))..."
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) up -d $(DB_SERVICE)
 	@echo "Database service started."
 
 .PHONY: db-stop
 db-stop:
-	@echo "Stopping database service..."
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) stop db
+	@echo "Stopping database service ($(DB_SERVICE))..."
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) stop $(DB_SERVICE)
 	@echo "Database service stopped."
 
 
@@ -115,9 +162,9 @@ MIGRATE_DEPS = up
 
 .PHONY: migrate-init
 migrate-init: $(MIGRATE_DEPS)
-	@echo "Initializing Alembic environment inside bot container..."
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) exec bot alembic init -t async alembic
-	@echo "Alembic initialization command sent to bot container. Check container logs for output."
+	@echo "Initializing Alembic environment inside $(BOT_SERVICE) container..."
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) exec $(BOT_SERVICE) alembic init -t async alembic
+	@echo "Alembic initialization command sent to $(BOT_SERVICE) container. Check container logs for output."
 
 .PHONY: migrate
 migrate: $(MIGRATE_DEPS)
@@ -126,15 +173,15 @@ migrate: $(MIGRATE_DEPS)
 		echo "Usage: make migrate message='your migration message'"; \
 		exit 1; \
 	fi
-	@echo "Generating new migration script inside bot container..."
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) exec bot alembic revision -autogenerate -m "$(message)"
-	@echo "Migration generation command sent to bot container. Check container logs for output and review the generated script."
+	@echo "Generating new migration script inside $(BOT_SERVICE) container..."
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) exec $(BOT_SERVICE) alembic revision --autogenerate -m "$(message)"
+	@echo "Migration generation command sent to $(BOT_SERVICE) container. Check container logs for output and review the generated script."
 
 .PHONY: migrate-upgrade
 migrate-upgrade: $(MIGRATE_DEPS)
-	@echo "Applying pending migrations inside bot container..."
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) exec bot alembic upgrade head
-	@echo "Upgrade command sent to bot container. Check container logs for output."
+	@echo "Applying pending migrations inside $(BOT_SERVICE) container..."
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) exec $(BOT_SERVICE) alembic upgrade head
+	@echo "Upgrade command sent to $(BOT_SERVICE) container. Check container logs for output."
 
 .PHONY: migrate-downgrade
 migrate-downgrade: $(MIGRATE_DEPS)
@@ -143,9 +190,9 @@ migrate-downgrade: $(MIGRATE_DEPS)
 		echo "Usage: make migrate-downgrade revision=HEAD~1"; \
 		exit 1; \
 	fi
-	@echo "Reverting migration inside bot container to revision $(revision)..."
-	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) exec bot alembic downgrade $(revision)
-	@echo "Downgrade command sent to bot container. Check container logs for output."
+	@echo "Reverting migration inside $(BOT_SERVICE) container to revision $(revision)..."
+	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) exec $(BOT_SERVICE) alembic downgrade $(revision)
+	@echo "Downgrade command sent to $(BOT_SERVICE) container. Check container logs for output."
 
 # --- Local Development Commands ---
 
@@ -157,6 +204,6 @@ install-deps:
 
 .PHONY: run-local
 run-local: install-deps
-	@echo "Running bot script locally..."
+	@echo "Running bot script locally (using python bot.py)..."
 	@echo "Ensure your .env is configured for local DB access or Docker DB is running and accessible."
 	python bot.py

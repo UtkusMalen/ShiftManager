@@ -14,7 +14,9 @@ class DBSessionMiddleware(BaseMiddleware):
         async with self.session_factory() as session:
             try:
                 data["session"] = session
-                return await handler(event, data)
+                result = await handler(event, data)
+                await session.commit()
+                return result
             except Exception as e:
                 await session.rollback()
                 logger.error(f"Database session error during request: {e}", exc_info=True)

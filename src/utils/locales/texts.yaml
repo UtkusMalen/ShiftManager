@@ -7,3 +7,41 @@ menu:
       history: "История работы"
       my_profile: "Мой профиль"
       start_shift: "+ Начать смену"
+
+shift:
+  status:
+    forming: "формируется"
+    active: "активна"
+    completed: "завершена"
+  active:
+    message_template: |
+      <b>Новая смена от {date}</b>
+      Статус: {status}
+
+      Старт смены: {start_time}
+      Время сейчас: {current_time}
+
+      Время работы: {duration}
+      Заказов выполнено: {orders_completed}
+      Пробег: {mileage}
+      Выручка: {revenue}
+      Налог: {tax}
+
+      <b>Прибыль: {profit}</b>
+      Прибыль в час: {profit_per_hour}
+
+      <b>История смены:</b>
+      {history_entries}
+    buttons:
+      enter_initial_data: "Указать вводные данные"
+      add_order_1: "+1 заказ"
+      add_order_2: "+2 заказа"
+      add_order_3: "+3 заказа"
+      add_order_4: "+4 заказа"
+      add_mileage: "+ пробег"
+      add_tips: "+ чаевые"
+      add_expenses: "+ траты"
+      shift_stats: "Статистика смены"
+      end_shift: "Завершить смену"
+    default_history: "Пока пусто"
+    default_value: "0"
