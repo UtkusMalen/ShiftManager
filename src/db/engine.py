@@ -1,5 +1,4 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession, async_sessionmaker
 from typing import AsyncGenerator
 import logging
 
@@ -10,21 +9,21 @@ logger = logging.getLogger(__name__)
 
 engine: AsyncEngine = create_async_engine(settings.database_url, echo=False, pool_size=5, max_overflow=10)
 
-AsyncSessionLocal = sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
+AsyncSessionFactory = async_sessionmaker(
+    engine,
     expire_on_commit=False,
+    autocommit=False,
     autoflush=False,
-    autocommit=False
+    class_=AsyncSession
 )
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
+    async with AsyncSessionFactory() as session:
         try:
             yield session
             await session.commit()
         except Exception:
-            session.rollback()
+            await session.rollback()
             raise
         finally:
             await session.close()

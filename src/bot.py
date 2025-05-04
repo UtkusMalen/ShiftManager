@@ -4,9 +4,9 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from src.config import settings
-from src.db.engine import engine, AsyncSessionLocal, dispose_engine
+from src.db.engine import AsyncSessionFactory, dispose_engine
 from src.db.middlewares.db import DBSessionMiddleware
-from src.handlers import main_handler_router
+from src.handlers import user_handlers, shift_handlers, main_menu, orders, initial_data
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -15,12 +15,15 @@ async def main():
     bot = Bot(token=settings.telegram_bot_token)
     dp = Dispatcher(storage=MemoryStorage())
 
-    dp.message.middleware(DBSessionMiddleware(AsyncSessionLocal))
-    dp.callback_query.middleware(DBSessionMiddleware(AsyncSessionLocal))
+    dp.message.middleware(DBSessionMiddleware(AsyncSessionFactory))
+    dp.callback_query.middleware(DBSessionMiddleware(AsyncSessionFactory))
     logger.info("Database session middleware added")
 
-    dp.include_router(main_handler_router)
-    logger.info("Main handler router included")
+    dp.include_router(user_handlers.router)
+    dp.include_router(shift_handlers.router)
+    dp.include_router(main_menu.router)
+    dp.include_router(orders.router)
+    dp.include_router(initial_data.router)
 
     logger.info("Starting bot polling")
     try:

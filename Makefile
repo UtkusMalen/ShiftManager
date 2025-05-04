@@ -61,6 +61,9 @@ down:
 	$(COMPOSE_COMMAND) -f $(COMPOSE_FILE) down
 	@echo "Services stopped."
 
+.PHONY: restart
+restart: down up
+
 .PHONY: clean
 clean:
 	@echo "Stopping and removing all services, networks, volumes, and images..."

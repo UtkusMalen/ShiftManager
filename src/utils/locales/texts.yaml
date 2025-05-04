@@ -1,3 +1,7 @@
+common:
+  buttons:
+    back: "Назад"
+
 menu:
   main:
     message: "Главное меню"
@@ -20,8 +24,8 @@ shift:
 
       Старт смены: {start_time}
       Время сейчас: {current_time}
-
       Время работы: {duration}
+      
       Заказов выполнено: {orders_completed}
       Пробег: {mileage}
       Выручка: {revenue}
@@ -45,3 +49,29 @@ shift:
       end_shift: "Завершить смену"
     default_history: "Пока пусто"
     default_value: "0"
+  initial_data:
+    in_menu: "Текущие данные для рассчёта:"
+    rate: |
+      Ставка: {rate}/час
+    rate_prompt: |
+      <b>Отправьте в чат размер оплаты за заказ или выберите ниже</b>
+      
+      <code>Текущая ставка: {rate}</code>/час
+    rate_error: "Введите правильное значение"
+    cancel: "Отмена"
+    order_rate: |
+      За заказ: {order_rate}р
+    order_rate_prompt: |
+      <b>Отправьте в чат или выберите ниже сумму, которую вы зарабатываете за 1 час</b>
+      
+      Текущее значение: <code>{order_rate}</code>/час
+    mileage_rate: |
+      Стоимость 1 км пробега: {mileage_rate}р
+    mileage_rate_prompt: |
+      <b>Отправьте в чат или выберите ниже сумму, которую вы зарабатываете за 1 км пробега</b>
+      
+      Текущее значение: <code>{mileage_rate}</code>/км
+  mileage: |
+    <b>Укажите текущий пробег за смену</b>
+    
+    Выбери ниже или отправь цифру в чат

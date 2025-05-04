@@ -6,17 +6,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from src.db.models import User
-from src.keyboards.inline import main_menu_keyboard
+from src.keyboards.main_menu import main_menu_keyboard
 from src.states.menu import MenuStates
-from src.utils.text_manager import text_manager
+from src.utils.text_manager import text_manager as tm
 
 logger = logging.getLogger(__name__)
 router = Router()
 
 async def get_or_create_user(
-    session: AsyncSession, telegram_id: int, username: str | None = None
-) -> User:
-    """Get user from DB or create a new one."""
+    session: AsyncSession, telegram_id: int, username: str | None = None) -> User:
     stmt = select(User).where(User.user_id == telegram_id)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
@@ -45,7 +43,7 @@ async def cmd_start(message: types.Message, state: FSMContext, session: AsyncSes
     logger.info(f"User {user.id} started the bot.")
 
     await message.answer(
-        f"{text_manager.get('menu.main.message')}",
+        f"{tm.get('menu.main.message')}",
         reply_markup=main_menu_keyboard()
     )
     await state.set_state(MenuStates.in_main_menu)
