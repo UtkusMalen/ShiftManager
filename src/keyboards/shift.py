@@ -15,9 +15,9 @@ def active_shift_keyboard() -> InlineKeyboardMarkup:
         builder.button(text=tm.get("shift.active.buttons.add_order_3"), callback_data="shift:add_order_3")
         builder.button(text=tm.get("shift.active.buttons.add_order_4"), callback_data="shift:add_order_4")
 
-        builder.button(text=tm.get("shift.active.buttons.add_mileage"), callback_data="shift:add_mileage")
-        builder.button(text=tm.get("shift.active.buttons.add_tips"), callback_data="shift:add_tips")
-        builder.button(text=tm.get("shift.active.buttons.add_expenses"), callback_data="shift:add_expenses")
+        builder.button(text=tm.get("shift.active.buttons.add_mileage"), callback_data="shift:add_mileage_prompt")
+        builder.button(text=tm.get("shift.active.buttons.add_tips"), callback_data="shift:add_tips_prompt")
+        builder.button(text=tm.get("shift.active.buttons.add_expenses"), callback_data="shift:add_expenses_prompt")
         builder.button(text=tm.get("shift.active.buttons.end_shift"), callback_data="shift:end")
         builder.button(text=tm.get("menu.main.buttons.main_menu"), callback_data="main_menu")
         builder.adjust(1,2,2,2,1,1,1)
@@ -28,9 +28,31 @@ def active_shift_keyboard() -> InlineKeyboardMarkup:
 
 def mileage_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    buttons = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240]
+    buttons = [20, 40, 60, 70, 80, 100, 120, 140, 160, 180, 200, 220]
     for button_text in buttons:
-        builder.button(text=str(button_text), callback_data=f"initial_data:mileage:{button_text}")
-    builder.button(text=tm.get("shift.initial_data.cancel"), callback_data="initial_data:cancel")
-    builder.adjust(4,4,4,4,1)
+        builder.button(text=str(button_text), callback_data=f"shift:mileage:add:{button_text}")
+    builder.button(text=tm.get("common.buttons.cancel", "Отмена"), callback_data="shift:show_active")
+    builder.adjust(4)
+    return builder.as_markup()
+
+def tips_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    buttons = [50, 100, 150, 200, 250, 300, 350, 400]
+    for button_text in buttons:
+        builder.button(text=str(button_text), callback_data=f"shift:tips:add:{button_text}")
+    builder.button(text=tm.get("common.buttons.cancel", "Отмена"), callback_data="shift:show_active")
+    builder.adjust(4)
+    return builder.as_markup()
+
+def cancel_action_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text=tm.get("common.buttons.cancel", "Отмена"), callback_data="shift:show_active")
+    return builder.as_markup()
+
+def expenses_category_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text=tm.get("shift.expenses.categories.food", "Еда"), callback_data="shift:expenses:category:food")
+    builder.button(text=tm.get("shift.expenses.categories.other", "Другое"), callback_data="shift:expenses:category:other")
+    builder.button(text=tm.get("common.buttons.cancel", "Отмена"), callback_data="shift:show_active")
+    builder.adjust(2,1)
     return builder.as_markup()

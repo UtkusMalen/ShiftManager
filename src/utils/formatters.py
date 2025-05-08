@@ -1,11 +1,13 @@
 import logging
+from typing import Dict, Any, List
 from zoneinfo import ZoneInfo
 from datetime import datetime
 
 from src.utils.text_manager import text_manager
-from src.db.models import Shift, ShiftEventType
+from src.db.models import Shift, ShiftEventType, ShiftEvent
 
 logger = logging.getLogger(__name__)
+MOSCOW_TZ = ZoneInfo('Europe/Moscow')
 
 def format_duration(start_time: datetime, end_time: datetime) -> str:
     if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
@@ -48,41 +50,46 @@ async def get_active_shift_message_text(shift: Shift) -> str:
     else:
         start_local = shift.start_time.astimezone(moscow_tz)
 
-    history_lines = []
-    if shift.events:
-        sorted_events = sorted(shift.events, key=lambda e: e.timestamp, reverse=True)
+    history_lines: List[str] = []
+    if hasattr(shift, 'events') and shift.events:
+        valid_events = [e for e in shift.events if e.timestamp is not None]
+        sorted_events: List[ShiftEvent] = sorted(valid_events, key=lambda e: e.timestamp, reverse=True)
 
         for event in sorted_events:
-            event_time_str = event.timestamp.astimezone(moscow_tz).strftime('%H:%M')
-
-            details_data = event.details if isinstance(event.details, dict) else {}
+            event_time_str = event.timestamp.astimezone(MOSCOW_TZ).strftime('%H:%M')
+            details_data: Dict[str, Any] = event.details if isinstance(event.details, dict) else {}
 
             if event.event_type == ShiftEventType.START_SHIFT:
-                event_type_str = "Старт"
+                event_type_str = "🏁 Старт"
                 details_str = details_data.get("message", "Смена начата")
             elif event.event_type == ShiftEventType.COMPLETE_SHIFT:
-                event_type_str = "Финиш"
+                event_type_str = "🏁 Финиш"
                 details_str = details_data.get("message", "Смена завершена")
             elif event.event_type == ShiftEventType.ADD_ORDER:
-                event_type_str = "+Заказ"
-                details_str = details_data.get("description", f"+{details_data.get('count', '?')} заказ(а)")
+                event_type_str = "📦 +Заказ"
+                count = details_data.get('count', '?')
+                details_str = details_data.get("description", f"+{count} заказ(а)")
             elif event.event_type == ShiftEventType.ADD_TIPS:
-                event_type_str = "+Чаевые"
-                details_str = details_data.get("description", f"+{details_data.get('amount', '?')} {details_data.get('currency', '')}")
+                event_type_str = "💰 +Чаевые"
+                amount = details_data.get('amount', '?')
+                details_str = details_data.get("description", f"+{amount} руб.")
             elif event.event_type == ShiftEventType.ADD_EXPENSE:
-                event_type_str = "-Расход"
-                details_str = details_data.get("description", f"{details_data.get('category', 'Прочее')} {details_data.get('amount', '?')}")
+                event_type_str = "💸 -Расход"
+                amount = details_data.get('amount', '?')
+                category = details_data.get('category', 'Прочее')
+                details_str = details_data.get("description", f"-{amount} руб. ({category})")
             elif event.event_type == ShiftEventType.ADD_MILEAGE:
-                event_type_str = "+Пробег"
-                details_str = details_data.get("description", f"+{details_data.get('distance_km', '?')} км")
+                event_type_str = "🚗 +Пробег"
+                distance = details_data.get('distance_km', '?')
+                details_str = details_data.get("description", f"+{distance} км")
             elif event.event_type == ShiftEventType.UPDATE_INITIAL_DATA:
-                 event_type_str = "Параметры"
-                 details_str = details_data.get("description", "Параметры обновлены")
+                event_type_str = "⚙️ Параметры"
+                details_str = details_data.get("description", "Параметры обновлены")
             else:
                 event_type_str = event.event_type.name
                 details_str = str(details_data) if details_data else "(нет данных)"
 
-            line = f"{event_time_str} {event_type_str}: {details_str}"
+            line = f"<code>{event_time_str}</code> {event_type_str}: {details_str}"
             history_lines.append(line)
 
     history_entries_str = "\n".join(history_lines[:5])
@@ -90,24 +97,26 @@ async def get_active_shift_message_text(shift: Shift) -> str:
         history_entries_str = text_manager.get("shift.active.default_history", default="Пока пусто")
 
     orders_completed = shift.orders_count if shift.orders_count is not None else 0
-    current_duration_hours = (now_moscow - start_local).total_seconds() / 3600.0 if now_moscow > start_local else 0
+    current_duration_seconds = (now_moscow - start_local).total_seconds() if now_moscow > start_local else 0
+    current_duration_hours = current_duration_seconds / 3600.0
 
-    total_mileage_display = shift.total_mileage
-    revenue = (current_duration_hours * shift.rate) + (orders_completed * shift.order_rate) + (total_mileage_display * shift.mileage_rate)
-    total_expenses_display = shift.total_expenses
-    tax_rate = 0.05
-    tax = revenue * tax_rate
-    profit = revenue - total_expenses_display - tax
-    profit_per_hour = (profit / current_duration_hours) if current_duration_hours > 0 else 0
+    total_mileage_display = shift.total_mileage if shift.total_mileage is not None else 0.0
+    total_tips_display = shift.total_tips if shift.total_tips is not None else 0.0
+    total_expenses_display = shift.total_expenses if shift.total_expenses is not None else 0.0
+
+    revenue_from_time = current_duration_hours * shift.rate
+    revenue_from_orders = orders_completed * shift.order_rate
+    revenue_from_mileage = total_mileage_display * shift.mileage_rate
+    total_revenue = revenue_from_time + revenue_from_orders + revenue_from_mileage + total_tips_display
+
+    tax_rate_decimal = 0.05
+    tax_percentage = int(tax_rate_decimal * 100)
+    tax_amount = total_revenue * tax_rate_decimal
+
+    profit = total_revenue - total_expenses_display - tax_amount
+    profit_per_hour = (profit / current_duration_hours) if current_duration_hours > 0.001 else 0.0
 
     status_text = text_manager.get(f"shift.status.{shift.status.value}", default=shift.status.value)
-
-    revenue_f = f"{revenue:.2f}"
-    tax_f = f"{tax:.2f}"
-    profit_f = f"{profit:.2f}"
-    profit_per_hour_f = f"{profit_per_hour:.2f}"
-    mileage_f = f"{total_mileage_display:.1f}"
-
 
     return text_manager.get(
         "shift.active.message_template",
@@ -117,10 +126,100 @@ async def get_active_shift_message_text(shift: Shift) -> str:
         current_time=now_moscow.strftime('%H:%M МСК'),
         duration=format_duration(start_local, now_moscow),
         orders_completed=orders_completed,
-        mileage=mileage_f,
-        revenue=revenue_f,
-        tax=tax_f,
-        profit=profit_f,
-        profit_per_hour=profit_per_hour_f,
+        mileage=f"{total_mileage_display:.1f}",
+        total_tips=f"{total_tips_display:.2f}",
+        total_expenses=f"{total_expenses_display:.2f}",
+        revenue=f"{total_revenue:.2f}",
+        tax_percentage=tax_percentage,
+        tax=f"{tax_amount:.2f}",
+        profit=f"{profit:.2f}",
+        profit_per_hour=f"{profit_per_hour:.2f}",
+        history_entries=history_entries_str
+    )
+
+async def format_completed_shift_details_message(shift: Shift) -> str:
+    if not shift.start_time or not shift.end_time:
+        logger.error(f"Attempted to format completed shift {shift.id} without start or end time.")
+        return "Ошибка: Неполные данные по смене."
+
+    start_local = shift.start_time.astimezone(MOSCOW_TZ) if shift.start_time.tzinfo else MOSCOW_TZ.localize(
+        shift.start_time)
+    end_local = shift.end_time.astimezone(MOSCOW_TZ) if shift.end_time.tzinfo else MOSCOW_TZ.localize(shift.end_time)
+
+    history_lines: List[str] = []
+    if hasattr(shift, 'events') and shift.events:
+        valid_events = [e for e in shift.events if e.timestamp is not None]
+        sorted_events: List[ShiftEvent] = sorted(valid_events, key=lambda e: e.timestamp,reverse=True)
+
+        for event in sorted_events:
+            event_time_str = event.timestamp.astimezone(MOSCOW_TZ).strftime('%H:%M')
+            details_data: Dict[str, Any] = event.details if isinstance(event.details, dict) else {}
+            if event.event_type == ShiftEventType.START_SHIFT:
+                event_type_str = "🏁 Старт"; details_str = details_data.get("message", "Смена начата")
+            elif event.event_type == ShiftEventType.COMPLETE_SHIFT:
+                event_type_str = "🏁 Финиш"; details_str = details_data.get("message", "Смена завершена")
+            elif event.event_type == ShiftEventType.ADD_ORDER:
+                event_type_str = "📦 +Заказ"; count = details_data.get('count', '?'); details_str = details_data.get(
+                    "description", f"+{count} заказ(а)")
+            elif event.event_type == ShiftEventType.ADD_TIPS:
+                event_type_str = "💰 +Чаевые"; amount = details_data.get('amount', '?'); details_str = details_data.get(
+                    "description", f"+{amount} руб.")
+            elif event.event_type == ShiftEventType.ADD_EXPENSE:
+                event_type_str = "💸 -Расход"; amount = details_data.get('amount', '?'); category = details_data.get(
+                    'category', 'Прочее'); details_str = details_data.get("description", f"-{amount} руб. ({category})")
+            elif event.event_type == ShiftEventType.ADD_MILEAGE:
+                event_type_str = "🚗 +Пробег"; distance = details_data.get('distance_km',
+                                                                          '?'); details_str = details_data.get(
+                    "description", f"+{distance} км")
+            elif event.event_type == ShiftEventType.UPDATE_INITIAL_DATA:
+                event_type_str = "⚙️ Параметры"; details_str = details_data.get("description", "Параметры обновлены")
+            else:
+                event_type_str = event.event_type.name; details_str = str(
+                    details_data) if details_data else "(нет данных)"
+            line = f"<code>{event_time_str}</code> {event_type_str}: {details_str}"
+            history_lines.append(line)
+
+    history_entries_str = "\n".join(history_lines) if history_lines else text_manager.get(
+        "shift.active.default_history", default="Нет событий")
+
+    orders_completed = shift.orders_count if shift.orders_count is not None else 0
+
+    total_duration_seconds = (end_local - start_local).total_seconds() if end_local > start_local else 0
+    total_duration_hours = total_duration_seconds / 3600.0
+
+    total_mileage_display = shift.total_mileage if shift.total_mileage is not None else 0.0
+    total_tips_display = shift.total_tips if shift.total_tips is not None else 0.0
+    total_expenses_display = shift.total_expenses if shift.total_expenses is not None else 0.0
+
+    revenue_from_time = total_duration_hours * shift.rate
+    revenue_from_orders = orders_completed * shift.order_rate
+    revenue_from_mileage = total_mileage_display * shift.mileage_rate
+    total_revenue = revenue_from_time + revenue_from_orders + revenue_from_mileage + total_tips_display
+
+    tax_rate_decimal = 0.05
+    tax_percentage = int(tax_rate_decimal * 100)
+    tax_amount = total_revenue * tax_rate_decimal
+
+    profit = total_revenue - total_expenses_display - tax_amount
+    profit_per_hour = (profit / total_duration_hours) if total_duration_hours > 0.001 else 0.0
+
+    status_text = text_manager.get(f"shift.status.{shift.status.value}", default=shift.status.value)
+
+    return text_manager.get(
+        "shift.active.message_template",
+        date=start_local.strftime('%d.%m.%Y'),
+        status=status_text,
+        start_time=start_local.strftime('%H:%M МСК'),
+        current_time=end_local.strftime('%H:%M МСК'),
+        duration=format_duration(start_local, end_local),
+        orders_completed=orders_completed,
+        mileage=f"{total_mileage_display:.1f}",
+        total_tips=f"{total_tips_display:.2f}",
+        total_expenses=f"{total_expenses_display:.2f}",
+        revenue=f"{total_revenue:.2f}",
+        tax_percentage=tax_percentage,
+        tax=f"{tax_amount:.2f}",
+        profit=f"{profit:.2f}",
+        profit_per_hour=f"{profit_per_hour:.2f}",
         history_entries=history_entries_str
     )

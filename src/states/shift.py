@@ -9,3 +9,4 @@ class ShiftStates(StatesGroup):
     in_shift_mileage = State()
     in_shift_tips = State()
     in_shift_expenses = State()
+    in_shift_expenses_category = State()
