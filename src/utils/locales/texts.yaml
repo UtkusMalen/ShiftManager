@@ -5,6 +5,7 @@ common:
     back_to_main_menu: "🏠 Главное меню"
 
 menu:
+  in_development: "🚧 В разработке"
   main:
     message: "🏠 Главное меню"
     buttons:
