@@ -1,9 +1,14 @@
 import logging
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from sqlalchemy.sql.functions import current_time
 
 from src.utils.text_manager import text_manager as tm
 
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 logger = logging.getLogger(__name__)
 
 def active_shift_keyboard() -> InlineKeyboardMarkup:
@@ -55,4 +60,60 @@ def expenses_category_keyboard() -> InlineKeyboardMarkup:
     builder.button(text=tm.get("shift.expenses.categories.other", "Другое"), callback_data="shift:expenses:category:other")
     builder.button(text=tm.get("common.buttons.cancel", "Отмена"), callback_data="shift:show_active")
     builder.adjust(2,1)
+    return builder.as_markup()
+
+def get_start_time_options_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    now_moscow = datetime.now(MOSCOW_TZ)
+    current_time_str = now_moscow.strftime("%H:%M %d.%m")
+
+    builder.button(
+        text=tm.get("common.buttons.use_current_time", current_time_str=current_time_str),
+        callback_data="shift:start_now"
+    )
+    builder.button(
+        text=tm.get("common.buttons.specify_time"),
+        callback_data="shift:start_manual_time"
+    )
+    builder.button(
+        text=tm.get("common.buttons.cancel", "Отмена"),
+        callback_data="main_menu"
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+def get_cancel_start_time_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=tm.get("common.buttons.cancel"),
+        callback_data="shift:start_cancel_manual_input"
+    )
+    return builder.as_markup()
+
+def get_end_time_options_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    now_moscow = datetime.now(MOSCOW_TZ)
+    current_time_str = now_moscow.strftime("%H:%M")
+
+    builder.button(
+        text=tm.get("common.buttons.use_current_time", current_time_str=current_time_str),
+        callback_data="shift:end_now"
+    )
+    builder.button(
+        text=tm.get("common.buttons.specify_time"),
+        callback_data="shift:end_manual_time"
+    )
+    builder.button(
+        text=tm.get("common.buttons.cancel"),
+        callback_data="shift:show_active"
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+def get_cancel_end_time_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=tm.get("common.buttons.cancel"),
+        callback_data="shift:end_cancel_manual_input"
+    )
     return builder.as_markup()

@@ -10,3 +10,5 @@ class ShiftStates(StatesGroup):
     in_shift_tips = State()
     in_shift_expenses = State()
     in_shift_expenses_category = State()
+    waiting_for_start_time = State()
+    waiting_for_end_time = State()

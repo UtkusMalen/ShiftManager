@@ -1,10 +1,10 @@
 import logging
+from datetime import datetime
 from typing import Dict, Any, List
 from zoneinfo import ZoneInfo
-from datetime import datetime
 
-from src.utils.text_manager import text_manager
 from src.db.models import Shift, ShiftEventType, ShiftEvent
+from src.utils.text_manager import text_manager
 
 logger = logging.getLogger(__name__)
 MOSCOW_TZ = ZoneInfo('Europe/Moscow')
@@ -16,10 +16,10 @@ def format_duration(start_time: datetime, end_time: datetime) -> str:
         return "Ошибка времени"
 
     if start_time.tzinfo is None:
-        start_time = MOSCOW_TZ.localize(start_time)
+        start_time = start_time.replace(tzinfo=MOSCOW_TZ)
         logger.warning("format_duration received naive start_time, assuming Moscow TZ.")
     if end_time.tzinfo is None:
-        end_time = MOSCOW_TZ.localize(end_time)
+        end_time = end_time.replace(tzinfo=MOSCOW_TZ)
         logger.warning("format_duration received naive end_time, assuming Moscow TZ.")
 
     start_time = start_time.astimezone(MOSCOW_TZ)
@@ -57,7 +57,7 @@ async def get_active_shift_message_text(shift: Shift) -> str:
     now_moscow = datetime.now(MOSCOW_TZ)
 
     if shift.start_time.tzinfo is None:
-        start_local = MOSCOW_TZ.localize(shift.start_time)
+        start_local = shift.start_time.replace(shift.start_time)
         logger.warning(f"Shift {shift.id} start_time was timezone-naive. Assuming Moscow time.")
     else:
         start_local = shift.start_time.astimezone(MOSCOW_TZ)
@@ -91,7 +91,7 @@ async def get_active_shift_message_text(shift: Shift) -> str:
                 category = details_data.get('category', 'Прочее')
                 details_str = details_data.get("description", f"-{amount} руб. ({category})")
             elif event.event_type == ShiftEventType.ADD_MILEAGE:
-                event_type_str = "🚗 +Пробег"
+                event_type_str = "🚗 Пробег"
                 distance = details_data.get('distance_km', '?')
                 details_str = details_data.get("description", f"+{distance} км")
             elif event.event_type == ShiftEventType.UPDATE_INITIAL_DATA:
@@ -139,6 +139,7 @@ async def get_active_shift_message_text(shift: Shift) -> str:
         date=start_local.strftime('%d.%m.%Y'),
         status=status_text,
         start_time=start_local.strftime('%H:%M МСК'),
+        end_shift_time_label=text_manager.get("shift.active.current_time_label", default="⏱️ Время сейчас:"),
         current_time=now_moscow.strftime('%H:%M МСК'),
         duration=format_duration(start_local, now_moscow),
         orders_completed=orders_completed,
@@ -159,9 +160,9 @@ async def format_completed_shift_details_message(shift: Shift) -> str:
         logger.error(f"Attempted to format completed shift {shift.id} without start or end time.")
         return "Ошибка: Неполные данные по смене."
 
-    start_local = shift.start_time.astimezone(MOSCOW_TZ) if shift.start_time.tzinfo else MOSCOW_TZ.localize(
+    start_local = shift.start_time.astimezone(MOSCOW_TZ) if shift.start_time.tzinfo else shift.start_time.localize(
         shift.start_time)
-    end_local = shift.end_time.astimezone(MOSCOW_TZ) if shift.end_time.tzinfo else MOSCOW_TZ.localize(shift.end_time)
+    end_local = shift.end_time.astimezone(MOSCOW_TZ) if shift.end_time.tzinfo else shift.end_time(shift.end_time)
 
     history_lines: List[str] = []
     if hasattr(shift, 'events') and shift.events:
@@ -180,31 +181,26 @@ async def format_completed_shift_details_message(shift: Shift) -> str:
             elif event.event_type == ShiftEventType.ADD_ORDER:
                 event_type_str = "📦 +Заказ"
                 count = details_data.get('count', '?')
-                details_str = details_data.get(
-                    "description", f"+{count} заказ(а)")
+                details_str = details_data.get("description", f"+{count} заказ(а)")
             elif event.event_type == ShiftEventType.ADD_TIPS:
                 event_type_str = "💰 +Чаевые"
                 amount = details_data.get('amount', '?')
-                details_str = details_data.get(
-                    "description", f"+{amount} руб.")
+                details_str = details_data.get("description", f"+{amount} руб.")
             elif event.event_type == ShiftEventType.ADD_EXPENSE:
                 event_type_str = "💸 -Расход"
                 amount = details_data.get('amount', '?')
-                category = details_data.get(
-                    'category', 'Прочее')
+                category = details_data.get('category', 'Прочее')
                 details_str = details_data.get("description", f"-{amount} руб. ({category})")
             elif event.event_type == ShiftEventType.ADD_MILEAGE:
                 event_type_str = "🚗 +Пробег"
                 distance = details_data.get('distance_km','?')
-                details_str = details_data.get(
-                    "description", f"+{distance} км")
+                details_str = details_data.get("description", f"+{distance} км")
             elif event.event_type == ShiftEventType.UPDATE_INITIAL_DATA:
                 event_type_str = "⚙️ Параметры"
                 details_str = details_data.get("description", "Параметры обновлены")
             else:
                 event_type_str = event.event_type.name
-                details_str = str(
-                    details_data) if details_data else "(нет данных)"
+                details_str = str(details_data) if details_data else "(нет данных)"
             line = f"<code>{event_time_str}</code> {event_type_str}: {details_str}"
             history_lines.append(line)
 
@@ -242,6 +238,7 @@ async def format_completed_shift_details_message(shift: Shift) -> str:
         date=start_local.strftime('%d.%m.%Y'),
         status=status_text,
         start_time=start_local.strftime('%H:%M МСК'),
+        end_shift_time_label=text_manager.get("shift.completed.end_time_label", default="🏁 Конец смены:"),
         current_time=end_local.strftime('%H:%M МСК'),
         duration=format_duration(start_local, end_local),
         orders_completed=orders_completed,
