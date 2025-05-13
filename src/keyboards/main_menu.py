@@ -13,7 +13,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     try:
         builder.button(
             text=tm.get("menu.main.buttons.statistics"),
-            callback_data="main_menu:in_development",
+            callback_data="statistics:select_period",
         )
         builder.button(
             text=tm.get("menu.main.buttons.history"),

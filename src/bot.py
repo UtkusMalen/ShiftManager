@@ -6,7 +6,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from src.config import settings
 from src.db.engine import AsyncSessionFactory, dispose_engine
 from src.db.middlewares.db import DBSessionMiddleware
-from src.handlers import user_handlers, shift_handlers, main_menu, orders, initial_data, history, in_developement
+from src.handlers import user_handlers, shift_handlers, main_menu, orders, initial_data, history, in_developement, statistics_handlers
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -26,6 +26,7 @@ async def main():
     dp.include_router(initial_data.router)
     dp.include_router(history.router)
     dp.include_router(in_developement.router)
+    dp.include_router(statistics_handlers.router)
 
     logger.info("Starting bot polling")
     try:
