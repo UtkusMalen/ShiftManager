@@ -5,6 +5,8 @@ common:
     back_to_main_menu: "🏠 Главное меню"
     use_current_time: ✅ Сейчас {current_time_str}
     specify_time: ⌨️ Указать время
+    yes: ✅ Да
+    no: ❌ Нет
 
 menu:
   in_development: "🚧 В разработке"
@@ -47,25 +49,33 @@ shift:
   end_shift_cancelled: "🚫 Завершение смены отменено."
   shift_completed_success: "🏁 Смена успешно завершена!"
   active:
-    current_time_label: "⏱️ Время сейчас:"
+    current_time_label: "Время сейчас:"
     message_template: |
       <b>🚀 Новая смена от {date}</b>
       Статус: {status}
-
-      ⏳ Старт смены: {start_time}
+      
+      <b>⏳ ВРЕМЯ</b>
+      Старт смены: {start_time}
       {end_shift_time_label} {current_time} 
-      🛠️ Время работы: {duration}
+      Время работы: {duration}
       
-      📦 Заказов выполнено: {orders_completed}
-      🛣️ Пробег: {mileage} км
-      💰 Чаевые: {total_tips} руб.
-      💸 Расходы: {total_expenses} руб.
+      <b>📦 ЗАКАЗЫ</b>
+      Выполнено: {orders_completed}
+      Заказов в час: {orders_per_hour}
       
-      📈 Выручка: {revenue} руб.
-      🧾 Налог ({tax_percentage}%): {tax} руб.
+      <b>📉 ТРАТЫ</b>
+      Бензин: {mileage_cost} руб. ({mileage} км)
+      Еда: {food_expenses} руб.
+      Другое: {other_expenses} руб.
+      Налог ({tax_percentage}%): {tax} руб.
+      
+      <b>📈 ДОХОДЫ</b>
+      За заказы: {revenue_from_orders} руб.
+      За время работы: {revenue_from_time} руб.
+      Чаевые: {total_tips} руб.
 
-      <b>🏆 Прибыль: {profit} руб.</b>
-      🤑 Прибыль в час: {profit_per_hour} руб./час
+      🏆<b> Прибыль: {profit} руб.</b>
+      🤑<b> Прибыль в час: {profit_per_hour} руб./час</b>
 
       <b>📝 История смены:</b>
       {history_entries}
@@ -83,7 +93,7 @@ shift:
     default_history: "📭 Пока пусто"
     default_value: "0"
   completed:
-    end_time_label: "🏁 Конец смены:"
+    end_time_label: "Конец смены:"
   initial_data:
     in_menu: "📊 Текущие данные для рассчёта:"
     rate: |
@@ -136,7 +146,12 @@ history:
     shift_entry_completed_display: "📅 Смена от {date} ({start_time})"
     shift_entry_started: "📅 Смена (начата {date} {time})"
     shift_entry_unknown: "🆔 Смена ID: {id}"
+    delete_shift: "🗑️ Удалить смену"
     back_to_list: "⬅️ К списку смен"
+  delete_confirmation_prompt: "🗑️ Вы уверены, что хотите удалить эту смену ({shift_date_time})?\nЭто действие необратимо."
+  shift_deleted_successfully: "✅ Смена успешно удалена."
+  shift_deletion_cancelled: "🚫 Удаление смены отменено."
+  shift_not_found_for_deletion: "⚠️ Смена для удаления не найдена."
 
 statistics:
   title: "📊 Статистика"

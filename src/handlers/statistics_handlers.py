@@ -37,20 +37,18 @@ async def get_shifts_for_period(session: AsyncSession, user_id: int, start_date:
 @router.callback_query(F.data == "statistics:select_period")
 async def cmd_select_statistics_period(call: CallbackQuery, state: FSMContext):
     await state.set_state(MenuStates.in_statistics)
-    if call.message:
-        try:
-            await call.message.delete()
-        except TelegramBadRequest as e:
-            logger.warning(f"Failed to delete message: {e}")
-
     try:
+        await call.message.edit_text(
+            text=tm.get("statistics.select_period", "Выберите период:"),
+            reply_markup=get_period_selection_keyboard()
+        )
+    except Exception:
+        await call.message.delete()
         await call.bot.send_message(
             chat_id=call.from_user.id,
             text=tm.get("statistics.select_period", "Выберите период:"),
             reply_markup=get_period_selection_keyboard()
         )
-    except Exception as e:
-        logger.error(f"Failed to send period selection message: {e}")
 
     await call.answer()
 

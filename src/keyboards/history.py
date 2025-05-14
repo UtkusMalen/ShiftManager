@@ -75,9 +75,23 @@ def history_selection_keyboard(shifts: List[Shift],current_page: int,total_pages
     builder.button(text=tm.get("common.buttons.back_to_main_menu", "Главное меню"), callback_data="main_menu")
     return builder.as_markup()
 
-def shift_details_keyboard() -> InlineKeyboardMarkup:
+def shift_details_keyboard(shift_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    builder.button(text=tm.get("history.buttons.delete_shift", "🗑️ Удалить смену"),callback_data=f"history:delete_shift_prompt:{shift_id}")
     builder.button(text=tm.get("history.buttons.back_to_list", "К списку смен"), callback_data="main_menu:history")
     builder.button(text=tm.get("common.buttons.back_to_main_menu", "Главное меню"), callback_data="main_menu")
     builder.adjust(1)
+    return builder.as_markup()
+
+def confirm_delete_shift_keyboard(shift_id: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=tm.get("common.buttons.yes", "✅Да"),
+        callback_data=f"history:delete_shift_confirm:{shift_id}"
+    )
+    builder.button(
+        text=tm.get("common.buttons.no", "❌Нет"),
+        callback_data=f"history:delete_shift_cancel:{shift_id}"
+    )
+    builder.adjust(2)
     return builder.as_markup()
