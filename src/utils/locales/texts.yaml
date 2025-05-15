@@ -172,3 +172,46 @@ statistics:
     last_month: "⏮️ Прошлый месяц"
     all_time: "🌍 Всё время"
     back_to_select: "⬅️ Назад к выбору периода"
+  image:
+    period_title_format_all_time: "Моя статистика за {period_name}"
+    period_title_format_date_range: "Моя статистика за {period_name} {start_date} - {end_date}"
+    period_title_format_to_date: "Моя статистика за {period_name} по {end_date}"
+    headers:
+      time_shifts: "ВРЕМЯ и СМЕНЫ"
+      orders: "ЗАКАЗЫ"
+      expenses: "ТРАТЫ"
+      revenue: "ВЫРУЧКА"
+      profit: "ПРИБЫЛЬ"
+    labels:
+      total: "Всего:"
+      total_hours: "Всего часов:"
+      avg_hours_in_shifts: "Часов в сменах:"
+      orders_speed: "Скорость:"
+      mileage_per_order: "Пробег:"
+      food: "Еда:"
+      tax: "Налог:"
+      mileage_cost: "Пробег:"
+      other: "Другое:"
+      hours_revenue: "Часы:"
+      orders_revenue: "Заказы:"
+      tips_revenue: "Чаевые:"
+      profit_per_hour: "В час:"
+      profit_per_km: "На км пробега:"
+      profit_per_order: "С заказа:"
+    units:
+      shifts: "смен"
+      orders_per_hour_unit: "в час"
+      km_per_order_unit: "км/заказ"
+      rub_per_km_unit: "руб./км"
+      rub_per_order_unit: "руб./заказ"
+      currency_symbol: "руб."
+      hour_nominative: "час"    # 1 час
+      hour_genitive_singular: "часа" # 2,3,4 часа
+      hour_genitive_plural: "часов"  # 5+ часов
+    projection:
+      title: "Расчётный доход за месяц при работе по графикам:"
+      schedule_5_2_8: "5/2 по 8 часов"
+      schedule_2_2_12: "2/2 по 12 часов"
+      schedule_3_1_12: "3/1 по 12 часов"
+      schedule_7_0_12: "7/0 по 12 часов"
+    footer: "Посчитано с помощью @calc_kura"

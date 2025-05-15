@@ -117,7 +117,7 @@ async def process_period_selection(call_or_msg: CallbackQuery | Message, session
             await call_or_msg.answer()
             return
 
-    generated_image_data: BytesIO | None = await generate_statistics_image(shifts, period_name_for_img)
+    generated_image_data: BytesIO | None = await generate_statistics_image(shifts, period_name_for_img, start_date, end_date)
 
     if generated_image_data:
         await bot_instance.send_photo(
