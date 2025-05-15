@@ -5,11 +5,51 @@ from zoneinfo import ZoneInfo
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from src.db.models import Shift, ShiftStatus
+from src.db.models import Shift, ShiftStatus, ShiftEventType
 from src.utils.text_manager import text_manager as tm
 
 logger = logging.getLogger(__name__)
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+
+
+def _calculate_shift_profit_for_button(shift: Shift) -> float:
+    if not shift.start_time or not shift.end_time:
+        return 0.0
+
+    duration_seconds = (shift.end_time - shift.start_time).total_seconds()
+    if duration_seconds <= 0:
+        return 0.0
+
+    duration_hours = duration_seconds / 3600.0
+
+    revenue_from_time = duration_hours * (shift.rate or 0.0)
+    revenue_from_orders = (shift.orders_count or 0) * (shift.order_rate or 0.0)
+    total_tips = shift.total_tips or 0.0
+    gross_income = revenue_from_time + revenue_from_orders + total_tips
+
+    mileage_cost = (shift.total_mileage or 0.0) * (shift.mileage_rate or 0.0)
+
+    manual_food_expenses = 0.0
+    manual_other_expenses = 0.0
+    if hasattr(shift, 'events') and shift.events:
+        for event in shift.events:
+            if event.event_type == ShiftEventType.ADD_EXPENSE and isinstance(event.details, dict):
+                amount = event.details.get("amount", 0.0)
+                category_code = event.details.get("category_code", "other")
+                if category_code == "food":
+                    manual_food_expenses += amount
+                elif category_code == "other":
+                    manual_other_expenses += amount
+
+    total_manual_expenses = manual_food_expenses + manual_other_expenses
+    total_operational_expenses = total_manual_expenses + mileage_cost
+
+    tax_rate_decimal = 0.05
+    tax_amount = gross_income * tax_rate_decimal
+
+    net_profit = gross_income - total_operational_expenses - tax_amount
+    return net_profit
+
 
 def history_selection_keyboard(shifts: List[Shift],current_page: int,total_pages: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -19,35 +59,53 @@ def history_selection_keyboard(shifts: List[Shift],current_page: int,total_pages
             if shift.id is None:
                 logger.warning(f"Shift with no ID encountered in history_selection_keyboard: {shift}")
                 continue
-            if shift.start_time:
+            if shift.start_time and shift.end_time and shift.status == ShiftStatus.COMPLETED:
                 start_time_local = shift.start_time
                 if start_time_local.tzinfo is None:
                     start_time_local = start_time_local.replace(tzinfo=MOSCOW_TZ)
                 else:
                     start_time_local = start_time_local.astimezone(MOSCOW_TZ)
 
-                date_str = start_time_local.strftime('%d.%m.%Y')
+                end_time_local = shift.end_time
+                if end_time_local.tzinfo is None:
+                    end_time_local = end_time_local.replace(tzinfo=MOSCOW_TZ)
+                else:
+                    end_time_local = end_time_local.astimezone(MOSCOW_TZ)
+
+                date_str = start_time_local.strftime('%d.%m')
+                start_hm_str = start_time_local.strftime('%H:%M')
+                end_hm_str = end_time_local.strftime('%H:%M')
+
+                profit = _calculate_shift_profit_for_button(shift)
+                profit_str = f"{profit:,.0f}₽".replace(",", " ")
+
+                shift_display_text = tm.get(
+                    "history.buttons.shift_entry_completed",
+                    date=date_str,
+                    profit=profit_str,
+                    start_time=start_hm_str,
+                    end_time=end_hm_str
+                )
+            elif shift.start_time:
+                start_time_local = shift.start_time
+                if start_time_local.tzinfo is None:
+                    start_time_local = start_time_local.replace(tzinfo=MOSCOW_TZ)
+                else:
+                    start_time_local = start_time_local.astimezone(MOSCOW_TZ)
+
+                date_str = start_time_local.strftime('%d.%m')
                 time_str = start_time_local.strftime('%H:%M')
 
-                if shift.status == ShiftStatus.COMPLETED and shift.end_time:
-                    shift_display_text = tm.get(
-                        "history.buttons.shift_entry_completed_display",
-                        date=date_str,
-                        start_time=time_str
-                    )
-                else:
-                    shift_display_text = tm.get(
-                        "history.buttons.shift_entry_started",
-                        date=date_str,
-                        start_time=time_str
-                    )
-            else:
-                shift_display_text = tm.get("history.buttons.shift_entry_unknown", id=shift.id)
-
+                shift_display_text = tm.get(
+                    "history.buttons.shift_entry_started",
+                    date=date_str,
+                    start_time=time_str
+                )
             builder.button(
                 text=shift_display_text,
                 callback_data=f"history:shift:{shift.id}"
             )
+
         builder.adjust(1)
 
     pagination_buttons = []

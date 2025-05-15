@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from src.db.models import Shift, ShiftStatus, ShiftEvent, ShiftEventType
+from src.db.models import Shift, ShiftStatus, ShiftEvent, ShiftEventType, User
 from src.keyboards.shift import (
     active_shift_keyboard, mileage_keyboard, tips_keyboard,
     cancel_action_keyboard, expenses_category_keyboard,
@@ -174,7 +174,10 @@ async def _create_new_shift(session: AsyncSession, user_telegram_id: int, user_t
     new_shift = Shift(
         user_id=user_db.user_id,
         start_time=start_time_dt,
-        status=ShiftStatus.ACTIVE
+        status=ShiftStatus.ACTIVE,
+        rate=user_db.default_rate,
+        order_rate=user_db.default_order_rate,
+        mileage_rate=user_db.default_mileage_rate
     )
     start_event = ShiftEvent(
         event_type=ShiftEventType.START_SHIFT,
@@ -394,6 +397,7 @@ async def _finalize_shift_completion(
         Shift.status == ShiftStatus.ACTIVE
     ).options(selectinload(Shift.events))
     shift = await session.scalar(stmt)
+    user_db = await session.scalar(select(User).where(User.user_id == user_telegram_id))
 
     if not shift:
         error_text = text_manager.get("shift.no_active_shift", "Активная смена не найдена.")
@@ -435,6 +439,17 @@ async def _finalize_shift_completion(
     end_event.shift = shift
     session.add(shift)
     session.add(end_event)
+
+    if user_db:
+        user_db.default_rate = shift.rate
+        user_db.default_order_rate = shift.order_rate
+        user_db.default_mileage_rate = shift.mileage_rate
+        session.add(user_db)
+        logger.info(f"Updated user {user_telegram_id} defaults upon shift completion: Rate={shift.rate}, OrderRate={shift.order_rate}, MileageRate={shift.mileage_rate}")
+    else:
+        logger.warning(f"User {user_telegram_id} not found during shift completion. Defaults not updated.")
+
+
     await session.flush()
 
     logger.info(f"Shift ID {shift.id} for user {user_telegram_id} completed at {end_time_dt}.")

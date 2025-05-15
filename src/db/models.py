@@ -15,10 +15,14 @@ class User(Base):
     user_id = Column(BigInteger, unique=True, nullable=False)
     username = Column(String, unique=True, nullable=True)
 
+    default_rate = Column(Float, nullable=False, default=0.0)
+    default_order_rate = Column(Float, nullable=False, default=0.0)
+    default_mileage_rate = Column(Float, nullable=False, default=0.0)
+
     shifts = relationship("Shift", primaryjoin="User.user_id == foreign(Shift.user_id)", back_populates="user")
 
     def __repr__(self):
-        return f"<User(id={self.id}, user_id={self.user_id}, username={self.username})>"
+        return f"<User(id={self.id}, user_id={self.user_id}, username={self.username}, default_rate={self.default_rate}, default_order_rate={self.default_order_rate}, default_mileage_rate={self.default_mileage_rate})>"
 
 class ShiftStatus(enum.Enum):
     FORMING = "forming"
@@ -61,7 +65,7 @@ class Shift(Base):
     )
 
     def __repr__(self):
-        return f"<Shift(id={self.id}, user_id={self.user_id}, status={self.status}, orders_count={self.orders_count}, total_mileage={self.total_mileage}, total_tips={self.total_tips}, total_expenses={self.total_expenses}, rate={self.rate}, oreder_rate={self.order_rate}, mileage_rate={self.mileage_rate}, start_time={self.start_time})>"
+        return f"<Shift(id={self.id}, user_id={self.user_id}, status={self.status}, orders_count={self.orders_count}, total_mileage={self.total_mileage}, total_tips={self.total_tips}, total_expenses={self.total_expenses}, rate={self.rate}, order_rate={self.order_rate}, mileage_rate={self.mileage_rate}, start_time={self.start_time})>"
 
 class ShiftEvent(Base):
     __tablename__ = "shift_events"

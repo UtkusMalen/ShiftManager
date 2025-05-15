@@ -8,6 +8,8 @@ from src.config import settings
 from src.db import Base
 from src.db.engine import engine
 
+print(f"DEBUG: Alembic is using database_url: {settings.database_url}")
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
